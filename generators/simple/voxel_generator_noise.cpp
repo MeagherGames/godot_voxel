@@ -160,7 +160,7 @@ VoxelGenerator::Result VoxelGeneratorNoise::generate_block(VoxelGenerator::Voxel
 
 	if (origin_in_voxels.y >= isosurface_upper_bound) {
 		// Fill with air
-		if (params.channel == VoxelBuffer::CHANNEL_SDF) {
+		if (VoxelBuffer::is_float_channel(params.channel)) {
 			buffer.clear_channel_f(params.channel, 100.0);
 		} else if (params.channel == VoxelBuffer::CHANNEL_TYPE) {
 			buffer.clear_channel(params.channel, air_type);
@@ -171,7 +171,7 @@ VoxelGenerator::Result VoxelGeneratorNoise::generate_block(VoxelGenerator::Voxel
 
 	} else if (origin_in_voxels.y + (buffer.get_size().y << lod) < isosurface_lower_bound) {
 		// Fill with matter
-		if (params.channel == VoxelBuffer::CHANNEL_SDF) {
+		if (VoxelBuffer::is_float_channel(params.channel)) {
 			buffer.clear_channel_f(params.channel, -100.0);
 		} else if (params.channel == VoxelBuffer::CHANNEL_TYPE) {
 			buffer.clear_channel(params.channel, matter_type);
@@ -197,7 +197,7 @@ VoxelGenerator::Result VoxelGeneratorNoise::generate_block(VoxelGenerator::Voxel
 
 					if (ly < isosurface_lower_bound) {
 						// Below is only matter
-						if (params.channel == VoxelBuffer::CHANNEL_SDF) {
+						if (VoxelBuffer::is_float_channel(params.channel)) {
 							// Not consistent SDF but should work ok
 							buffer.set_voxel_f(constants::SDF_FAR_INSIDE, x, y, z, params.channel);
 						} else if (params.channel == VoxelBuffer::CHANNEL_TYPE) {
@@ -209,7 +209,7 @@ VoxelGenerator::Result VoxelGeneratorNoise::generate_block(VoxelGenerator::Voxel
 
 					} else if (ly >= isosurface_upper_bound) {
 						// Above is only air
-						if (params.channel == VoxelBuffer::CHANNEL_SDF) {
+						if (VoxelBuffer::is_float_channel(params.channel)) {
 							// Not consistent SDF but should work ok
 							buffer.set_voxel_f(constants::SDF_FAR_OUTSIDE, x, y, z, params.channel);
 						} else if (params.channel == VoxelBuffer::CHANNEL_TYPE) {
@@ -232,7 +232,7 @@ VoxelGenerator::Result VoxelGeneratorNoise::generate_block(VoxelGenerator::Voxel
 					// encoding is tuned for proper distance fields
 					const float d = ((n + bias) * noise_period); // * iso_scale;
 
-					if (params.channel == VoxelBuffer::CHANNEL_SDF) {
+					if (VoxelBuffer::is_float_channel(params.channel)) {
 						buffer.set_voxel_f(d, x, y, z, params.channel);
 					} else if (params.channel == VoxelBuffer::CHANNEL_TYPE && d < 0) {
 						buffer.set_voxel(matter_type, x, y, z, params.channel);

@@ -226,7 +226,7 @@ Ref<ConcavePolygonShape3D> make_collision_shape_from_mesher_output(
 	if (mesher.is_generating_collision_surface()) {
 		if (mesher_output.collision_surface.submesh_vertex_end != -1) {
 			// Use a sub-region of the render mesh
-			if (mesher_output.surfaces.size() > 0) {
+			if (mesher_output.surfaces.size() > 0 && mesher_output.surfaces[0].collision_enabled) {
 				shape = create_concave_polygon_shape(
 						mesher_output.surfaces[0].arrays,
 						mesher_output.collision_surface.submesh_vertex_end,
@@ -248,10 +248,18 @@ Ref<ConcavePolygonShape3D> make_collision_shape_from_mesher_output(
 		if (mesher_output.surfaces.size() <= MAX_STACK_SURFACES) {
 			// Use stack
 			std::array<Array, MAX_STACK_SURFACES> render_surfaces_s;
+			unsigned int surface_count = 0;
 			for (unsigned int i = 0; i < mesher_output.surfaces.size(); ++i) {
-				render_surfaces_s[i] = mesher_output.surfaces[i].arrays;
+				if (!mesher_output.surfaces[i].collision_enabled) {
+					continue;
+				}
+				render_surfaces_s[surface_count] = mesher_output.surfaces[i].arrays;
+				++surface_count;
 			}
-			Span<const Array> render_surfaces(render_surfaces_s.data(), mesher_output.surfaces.size());
+			if (surface_count == 0) {
+				return shape;
+			}
+			Span<const Array> render_surfaces(render_surfaces_s.data(), surface_count);
 			shape = create_concave_polygon_shape(render_surfaces);
 
 		} else {
@@ -259,7 +267,13 @@ Ref<ConcavePolygonShape3D> make_collision_shape_from_mesher_output(
 			StdVector<Array> render_surfaces_h;
 			render_surfaces_h.reserve(mesher_output.surfaces.size());
 			for (const VoxelMesher::Output::Surface &surface : mesher_output.surfaces) {
+				if (!surface.collision_enabled) {
+					continue;
+				}
 				render_surfaces_h.push_back(surface.arrays);
+			}
+			if (render_surfaces_h.size() == 0) {
+				return shape;
 			}
 			shape = create_concave_polygon_shape(to_span(render_surfaces_h));
 		}

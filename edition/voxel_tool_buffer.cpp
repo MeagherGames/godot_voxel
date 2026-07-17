@@ -51,7 +51,7 @@ void VoxelToolBuffer::do_box(Vector3i begin, Vector3i end) {
 	Vector3iUtil::sort_min_max(begin, end);
 	const Box3i box = Box3i::from_min_max(begin, end + Vector3i(1, 1, 1)).clipped(vb.get_size());
 
-	if (_channel == VoxelBuffer::CHANNEL_SDF) {
+	if (VoxelBuffer::is_float_channel(_channel)) {
 #if 0
 		const float sdf_scale = get_sdf_scale();
 		const VoxelBuffer::ChannelId channel = _channel;

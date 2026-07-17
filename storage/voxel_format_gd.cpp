@@ -124,6 +124,24 @@ void VoxelFormat::_bind_methods() {
 			"get_channel_depth",
 			VoxelBuffer::CHANNEL_COLOR
 	);
+	ADD_PROPERTYI(
+			PropertyInfo(Variant::INT, "data5_depth", PROPERTY_HINT_ENUM, depth_hint_string, PROPERTY_USAGE_EDITOR),
+			"set_channel_depth",
+			"get_channel_depth",
+			VoxelBuffer::CHANNEL_DATA5
+	);
+	ADD_PROPERTYI(
+			PropertyInfo(Variant::INT, "data6_depth", PROPERTY_HINT_ENUM, depth_hint_string, PROPERTY_USAGE_EDITOR),
+			"set_channel_depth",
+			"get_channel_depth",
+			VoxelBuffer::CHANNEL_DATA6
+	);
+	ADD_PROPERTYI(
+			PropertyInfo(Variant::INT, "data7_depth", PROPERTY_HINT_ENUM, depth_hint_string, PROPERTY_USAGE_EDITOR),
+			"set_channel_depth",
+			"get_channel_depth",
+			VoxelBuffer::CHANNEL_DATA7
+	);
 }
 
 } // namespace zylann::voxel::godot

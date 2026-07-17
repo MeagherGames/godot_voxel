@@ -51,6 +51,7 @@ public:
 		struct Surface {
 			Array arrays;
 			uint16_t material_index = 0;
+			bool collision_enabled = true;
 		};
 		StdVector<Surface> surfaces;
 		FixedArray<StdVector<Surface>, Cube::SIDE_COUNT> transition_surfaces;

@@ -52,6 +52,17 @@ public:
 
 	static const char *get_channel_name(const ChannelId id);
 
+	static inline bool is_float_channel(ChannelId channel) {
+		return channel == CHANNEL_SDF || channel == CHANNEL_DATA5;
+	}
+
+	static inline bool is_float_channel(unsigned int channel) {
+		if (channel >= MAX_CHANNELS) {
+			return false;
+		}
+		return is_float_channel(static_cast<ChannelId>(channel));
+	}
+
 	static const int ALL_CHANNELS_MASK = 0xff;
 
 	enum Compression : uint8_t {
@@ -635,9 +646,23 @@ private:
 	FlatMapMoveOnly<Vector3i, VoxelMetadata> _voxel_metadata;
 };
 
-void get_unscaled_sdf(const VoxelBuffer &voxels, Span<float> sdf);
-void scale_and_store_sdf(VoxelBuffer &voxels, Span<float> sdf);
-void scale_and_store_sdf_if_modified(VoxelBuffer &voxels, Span<float> sdf, Span<const float> comparand);
+// These helpers are intended for SDF-like float channels (SDF/Data5), not arbitrary integer channels.
+void get_unscaled_sdf(
+		const VoxelBuffer &voxels,
+		Span<float> sdf,
+		VoxelBuffer::ChannelId channel = VoxelBuffer::CHANNEL_SDF
+);
+void scale_and_store_sdf(
+		VoxelBuffer &voxels,
+		Span<float> sdf,
+		VoxelBuffer::ChannelId channel = VoxelBuffer::CHANNEL_SDF
+);
+void scale_and_store_sdf_if_modified(
+		VoxelBuffer &voxels,
+		Span<float> sdf,
+		Span<const float> comparand,
+		VoxelBuffer::ChannelId channel = VoxelBuffer::CHANNEL_SDF
+);
 
 void paste(
 		Span<const uint8_t> channels,

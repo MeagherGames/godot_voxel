@@ -54,7 +54,7 @@ protected:
 
 		const int channel = params.channel;
 		const Vector3i bs = out_buffer.get_size();
-		const bool use_sdf = channel == VoxelBuffer::CHANNEL_SDF;
+		const bool use_sdf = VoxelBuffer::is_float_channel(params.channel);
 
 		if (origin.y > get_height_start() + get_height_range()) {
 			// The bottom of the block is above the highest ground can go (default is air)
@@ -137,7 +137,7 @@ protected:
 		}
 
 		// const int channel = params.channel;
-		const bool use_sdf = channel == VoxelBuffer::CHANNEL_SDF;
+		const bool use_sdf = VoxelBuffer::is_float_channel(channel);
 
 		if (use_sdf) {
 			for (unsigned int i = 0; i < out_values.size(); ++i) {

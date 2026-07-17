@@ -433,7 +433,14 @@ void box_blur_slow_ref(const VoxelBuffer &src, VoxelBuffer &dst, int radius, Vec
 
 #endif
 
-void box_blur(const VoxelBuffer &src, VoxelBuffer &dst, int radius, Vector3f sphere_pos, float sphere_radius) {
+void box_blur(
+		const VoxelBuffer &src,
+		VoxelBuffer &dst,
+		int radius,
+		Vector3f sphere_pos,
+		float sphere_radius,
+		VoxelBuffer::ChannelId channel
+) {
 	ZN_PROFILE_SCOPE();
 	ZN_ASSERT_RETURN(radius >= 1);
 
@@ -482,7 +489,7 @@ void box_blur(const VoxelBuffer &src, VoxelBuffer &dst, int radius, Vector3f sph
 				for (int y = 0; y < box_size; ++y) {
 					// TODO The fact we sample this way for the first axis makes it a lot slower than the others.
 					// Make tmp larger to fit the whole size and convert first into it?
-					const float sd = src.get_voxel_f(Vector3i(dst_pos.x, y, dst_pos.z), VoxelBuffer::CHANNEL_SDF);
+					const float sd = src.get_voxel_f(Vector3i(dst_pos.x, y, dst_pos.z), channel);
 					ring_buffer[y] = sd;
 					sd_sum += sd;
 				}
@@ -497,9 +504,7 @@ void box_blur(const VoxelBuffer &src, VoxelBuffer &dst, int radius, Vector3f sph
 
 				for (dst_pos.y = 1; dst_pos.y < tmp_size.y; ++dst_pos.y) {
 					// Look 2*radius ahead because we sample from a buffer that's also bigger than tmp in Y
-					const float sd = src.get_voxel_f(
-							Vector3i(dst_pos.x, dst_pos.y + radius * 2, dst_pos.z), VoxelBuffer::CHANNEL_SDF
-					);
+					const float sd = src.get_voxel_f(Vector3i(dst_pos.x, dst_pos.y + radius * 2, dst_pos.z), channel);
 					// Remove sample exiting the window
 					sd_sum -= ring_buffer[rbr];
 					// Add sample entering the window
@@ -611,12 +616,12 @@ void box_blur(const VoxelBuffer &src, VoxelBuffer &dst, int radius, Vector3f sph
 					//
 					const Vector3i src_pos = dst_pos + Vector3i(radius, radius, radius);
 					// TODO It might be possible to optimize this read
-					const float src_sd = src.get_voxel_f(src_pos, VoxelBuffer::CHANNEL_SDF);
+					const float src_sd = src.get_voxel_f(src_pos, channel);
 
 					const float sphere_ds = math::distance_squared(sphere_pos, to_vec3f(dst_pos));
 					if (sphere_ds > sphere_radius_s) {
 						// Outside of brush
-						dst.set_voxel_f(src_sd, dst_pos, VoxelBuffer::CHANNEL_SDF);
+						dst.set_voxel_f(src_sd, dst_pos, channel);
 						continue;
 					}
 
@@ -628,14 +633,20 @@ void box_blur(const VoxelBuffer &src, VoxelBuffer &dst, int radius, Vector3f sph
 					const float tmp_sd = tmp[tmp_loc];
 
 					const float sd = Math::lerp(src_sd, tmp_sd, factor);
-					dst.set_voxel_f(sd, dst_pos, VoxelBuffer::CHANNEL_SDF);
+					dst.set_voxel_f(sd, dst_pos, channel);
 				}
 			}
 		}
 	}
 }
 
-void grow_sphere(VoxelBuffer &src, float strength, Vector3f sphere_pos, float sphere_radius) {
+void grow_sphere(
+		VoxelBuffer &src,
+		float strength,
+		Vector3f sphere_pos,
+		float sphere_radius,
+		VoxelBuffer::ChannelId channel
+) {
 	ZN_PROFILE_SCOPE();
 	ZN_ASSERT_RETURN(sphere_radius > 0.001f);
 
@@ -652,7 +663,7 @@ void grow_sphere(VoxelBuffer &src, float strength, Vector3f sphere_pos, float sp
 	for (src_pos.z = 0; src_pos.z < src_size.z; ++src_pos.z) {
 		for (src_pos.x = 0; src_pos.x < src_size.x; ++src_pos.x) {
 			for (src_pos.y = 0; src_pos.y < src_size.y; ++src_pos.y) {
-				const float src_sd = src.get_voxel_f(src_pos, VoxelBuffer::CHANNEL_SDF);
+				const float src_sd = src.get_voxel_f(src_pos, channel);
 
 				const float sphere_ds = math::distance_squared(sphere_pos, to_vec3f(src_pos));
 				if (sphere_ds > sphere_radius_squared) {
@@ -665,7 +676,7 @@ void grow_sphere(VoxelBuffer &src, float strength, Vector3f sphere_pos, float sp
 
 				// With signed distance fields, subtracting "grows" the shape.
 				// Negative strength is allowed so it can also be used to "shrink".
-				src.set_voxel_f(src_sd - sd_offset, src_pos, VoxelBuffer::CHANNEL_SDF);
+				src.set_voxel_f(src_sd - sd_offset, src_pos, channel);
 			}
 		}
 	}

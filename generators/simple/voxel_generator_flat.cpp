@@ -68,7 +68,7 @@ VoxelGenerator::Result VoxelGeneratorFlat::generate_block(VoxelGenerator::VoxelQ
 	const Vector3i origin = input.origin_in_voxels;
 	const int channel = params.channel;
 	const Vector3i bs = out_buffer.get_size();
-	const bool use_sdf = channel == VoxelBuffer::CHANNEL_SDF;
+	const bool use_sdf = VoxelBuffer::is_float_channel(params.channel);
 	const float margin = 1 << input.lod;
 	const int lod = input.lod;
 

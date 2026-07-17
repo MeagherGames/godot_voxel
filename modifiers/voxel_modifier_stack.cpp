@@ -62,12 +62,11 @@ Span<const Vector3f> get_positions_temporary(
 }
 
 // TODO Use VoxelBuffer helper function
-void decompress_sdf_to_buffer(VoxelBuffer &voxels, StdVector<float> &sdf) {
+void decompress_sdf_to_buffer(VoxelBuffer &voxels, StdVector<float> &sdf, VoxelBuffer::ChannelId channel) {
 	ZN_DSTACK();
+	ZN_ASSERT_RETURN(VoxelBuffer::is_float_channel(channel));
 
 	sdf.resize(Vector3iUtil::get_volume_u64(voxels.get_size()));
-
-	const VoxelBuffer::ChannelId channel = VoxelBuffer::CHANNEL_SDF;
 	voxels.decompress_channel(channel);
 
 	const VoxelBuffer::Depth depth = voxels.get_channel_depth(channel);
@@ -199,71 +198,83 @@ void VoxelModifierStack::apply(VoxelBuffer &voxels, AABB aabb) const {
 	const Vector3 w_to_v = Vector3(voxels.get_size()) / aabb.size;
 	const Vector3i origin_voxels = Vector3i(math::floor(aabb.position * w_to_v));
 
-	for (unsigned int i = 0; i < _stack.size(); ++i) {
-		const VoxelModifier *modifier = _stack[i];
-		ZN_ASSERT(modifier != nullptr);
+	const VoxelBuffer::ChannelId float_channels[] = { VoxelBuffer::CHANNEL_SDF, VoxelBuffer::CHANNEL_DATA5 };
 
-		const AABB modifier_aabb = modifier->get_aabb();
-		if (modifier_aabb.intersects(aabb)) {
-			ZN_PROFILE_SCOPE_NAMED("Intersecting modifier");
+	for (const VoxelBuffer::ChannelId channel : float_channels) {
+		any_intersection = false;
 
-			if (any_intersection == false) {
-				ZN_PROFILE_SCOPE_NAMED("Read block");
-				any_intersection = true;
+		for (unsigned int i = 0; i < _stack.size(); ++i) {
+			const VoxelModifier *modifier = _stack[i];
+			ZN_ASSERT(modifier != nullptr);
 
-				decompress_sdf_to_buffer(voxels, tls_block_sdf_initial);
+			const AABB modifier_aabb = modifier->get_aabb();
+			if (modifier_aabb.intersects(aabb)) {
+				ZN_PROFILE_SCOPE_NAMED("Intersecting modifier");
 
-				tls_block_sdf.resize(tls_block_sdf_initial.size());
-				memcpy(tls_block_sdf.data(), tls_block_sdf_initial.data(), tls_block_sdf.size() * sizeof(float));
+				if (any_intersection == false) {
+					ZN_PROFILE_SCOPE_NAMED("Read block");
+					any_intersection = true;
+
+					decompress_sdf_to_buffer(voxels, tls_block_sdf_initial, channel);
+
+					tls_block_sdf.resize(tls_block_sdf_initial.size());
+					memcpy(tls_block_sdf.data(), tls_block_sdf_initial.data(), tls_block_sdf.size() * sizeof(float));
+				}
+
+				// Get modifier bounds in voxels
+				Box3i modifier_box(math::floor(modifier_aabb.position * w_to_v), math::ceil(modifier_aabb.size * w_to_v));
+				modifier_box.clip(Box3i(origin_voxels, voxels.get_size()));
+				const Vector3i local_origin_in_voxels = modifier_box.position - origin_voxels;
+
+				const size_t volume = Vector3iUtil::get_volume_u64(modifier_box.size);
+				area_sdf.resize(volume);
+				copy_3d_region_zxy(
+						to_span(area_sdf),
+						modifier_box.size,
+						Vector3i(),
+						to_span_const(tls_block_sdf),
+						voxels.get_size(),
+						local_origin_in_voxels,
+						local_origin_in_voxels + modifier_box.size
+				);
+
+				get_positions_buffer(
+						modifier_box.size,
+						to_vec3f(v_to_w * modifier_box.position),
+						to_vec3f(v_to_w * modifier_box.size),
+						area_positions
+				);
+
+				ctx.positions = to_span(area_positions);
+				ctx.sdf = to_span(area_sdf);
+				modifier->apply(ctx);
+
+				// Write modifications back to the full-block decompressed buffer
+				// TODO Maybe use an unchecked version for a bit more speed?
+				copy_3d_region_zxy(
+						to_span(tls_block_sdf),
+						voxels.get_size(),
+						local_origin_in_voxels,
+						Span<const float>(ctx.sdf),
+						modifier_box.size,
+						Vector3i(),
+						modifier_box.size
+				);
 			}
+		}
 
-			// Get modifier bounds in voxels
-			Box3i modifier_box(math::floor(modifier_aabb.position * w_to_v), math::ceil(modifier_aabb.size * w_to_v));
-			modifier_box.clip(Box3i(origin_voxels, voxels.get_size()));
-			const Vector3i local_origin_in_voxels = modifier_box.position - origin_voxels;
-
-			const size_t volume = Vector3iUtil::get_volume_u64(modifier_box.size);
-			area_sdf.resize(volume);
-			copy_3d_region_zxy(
-					to_span(area_sdf),
-					modifier_box.size,
-					Vector3i(),
-					to_span_const(tls_block_sdf),
-					voxels.get_size(),
-					local_origin_in_voxels,
-					local_origin_in_voxels + modifier_box.size
-			);
-
-			get_positions_buffer(
-					modifier_box.size,
-					to_vec3f(v_to_w * modifier_box.position),
-					to_vec3f(v_to_w * modifier_box.size),
-					area_positions
-			);
-
-			ctx.positions = to_span(area_positions);
-			ctx.sdf = to_span(area_sdf);
-			modifier->apply(ctx);
-
-			// Write modifications back to the full-block decompressed buffer
-			// TODO Maybe use an unchecked version for a bit more speed?
-			copy_3d_region_zxy(
+		if (any_intersection) {
+			// scale_and_store_sdf(voxels, to_span(tls_block_sdf));
+			scale_and_store_sdf_if_modified(
+					voxels,
 					to_span(tls_block_sdf),
-					voxels.get_size(),
-					local_origin_in_voxels,
-					Span<const float>(ctx.sdf),
-					modifier_box.size,
-					Vector3i(),
-					modifier_box.size
+					to_span(tls_block_sdf_initial),
+					channel
 			);
 		}
 	}
 
-	if (any_intersection) {
-		// scale_and_store_sdf(voxels, to_span(tls_block_sdf));
-		scale_and_store_sdf_if_modified(voxels, to_span(tls_block_sdf), to_span(tls_block_sdf_initial));
-		voxels.compress_uniform_channels();
-	}
+	voxels.compress_uniform_channels();
 }
 
 void VoxelModifierStack::apply(float &sdf, Vector3f position) const {

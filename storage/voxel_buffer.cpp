@@ -101,6 +101,12 @@ uint64_t VoxelBuffer::get_default_raw_value(const VoxelBuffer::ChannelId channel
 			return 0;
 		case CHANNEL_INDICES:
 			return get_default_indices_raw_value(depth);
+		case CHANNEL_DATA5:
+			return get_default_sdf_raw_value(depth);
+		case CHANNEL_DATA6:
+			return get_default_indices_raw_value(depth);
+		case CHANNEL_DATA7:
+			return MIXEL4_DEFAULT_WEIGHTS;
 		case CHANNEL_WEIGHTS:
 			return MIXEL4_DEFAULT_WEIGHTS;
 		default:
@@ -167,6 +173,16 @@ void VoxelBuffer::init_channel_defaults() {
 
 	_channels[CHANNEL_WEIGHTS].depth = DEFAULT_WEIGHTS_CHANNEL_DEPTH;
 	_channels[CHANNEL_WEIGHTS].defval = MIXEL4_DEFAULT_WEIGHTS;
+
+	// 16-bit is better on average to handle large worlds
+	_channels[CHANNEL_DATA5].depth = DEFAULT_SDF_CHANNEL_DEPTH;
+	_channels[CHANNEL_DATA5].defval = DEFAULT_RAW_SDF_16BIT;
+
+	_channels[CHANNEL_DATA6].depth = DEFAULT_INDICES_CHANNEL_DEPTH;
+	_channels[CHANNEL_DATA6].defval = MIXEL4_DEFAULT_INDICES;
+
+	_channels[CHANNEL_DATA7].depth = DEFAULT_WEIGHTS_CHANNEL_DEPTH;
+	_channels[CHANNEL_DATA7].defval = MIXEL4_DEFAULT_WEIGHTS;
 }
 
 VoxelBuffer &VoxelBuffer::operator=(VoxelBuffer &&src) {
@@ -228,9 +244,9 @@ void VoxelBuffer::clear(const VoxelFormat *new_format) {
 	_channels[CHANNEL_COLOR].defval = 0;
 	_channels[CHANNEL_INDICES].defval = get_default_indices_raw_value(_channels[CHANNEL_INDICES].depth);
 	_channels[CHANNEL_WEIGHTS].defval = MIXEL4_DEFAULT_WEIGHTS;
-	_channels[CHANNEL_DATA5].defval = 0;
-	_channels[CHANNEL_DATA6].defval = 0;
-	_channels[CHANNEL_DATA7].defval = 0;
+	_channels[CHANNEL_DATA5].defval = get_default_sdf_raw_value(_channels[CHANNEL_DATA5].depth);
+	_channels[CHANNEL_DATA6].defval = get_default_indices_raw_value(_channels[CHANNEL_DATA6].depth);
+	_channels[CHANNEL_DATA7].defval = MIXEL4_DEFAULT_WEIGHTS;
 
 	_size = Vector3i();
 	clear_voxel_metadata();
@@ -1216,13 +1232,13 @@ void VoxelBuffer::check_voxel_metadata_integrity() const {
 
 #endif
 
-void get_unscaled_sdf(const VoxelBuffer &voxels, Span<float> sdf) {
+void get_unscaled_sdf(const VoxelBuffer &voxels, Span<float> sdf, VoxelBuffer::ChannelId channel) {
 	ZN_PROFILE_SCOPE();
 	ZN_DSTACK();
+	ZN_ASSERT_RETURN(VoxelBuffer::is_float_channel(channel));
 	const uint64_t volume = Vector3iUtil::get_volume_u64(voxels.get_size());
 	ZN_ASSERT_RETURN(volume == sdf.size());
 
-	const VoxelBuffer::ChannelId channel = VoxelBuffer::CHANNEL_SDF;
 	const VoxelBuffer::Depth depth = voxels.get_channel_depth(channel);
 
 	if (voxels.get_channel_compression(channel) == VoxelBuffer::COMPRESSION_UNIFORM) {
@@ -1273,9 +1289,9 @@ void get_unscaled_sdf(const VoxelBuffer &voxels, Span<float> sdf) {
 	}
 }
 
-void scale_and_store_sdf(VoxelBuffer &voxels, Span<float> sdf) {
+void scale_and_store_sdf(VoxelBuffer &voxels, Span<float> sdf, VoxelBuffer::ChannelId channel) {
 	ZN_PROFILE_SCOPE();
-	const VoxelBuffer::ChannelId channel = VoxelBuffer::CHANNEL_SDF;
+	ZN_ASSERT_RETURN(VoxelBuffer::is_float_channel(channel));
 	const VoxelBuffer::Depth depth = voxels.get_channel_depth(channel);
 	ZN_ASSERT_RETURN(voxels.get_channel_compression(channel) == VoxelBuffer::COMPRESSION_NONE);
 
@@ -1320,9 +1336,14 @@ void scale_and_store_sdf(VoxelBuffer &voxels, Span<float> sdf) {
 	}
 }
 
-void scale_and_store_sdf_if_modified(VoxelBuffer &voxels, Span<float> sdf, Span<const float> comparand) {
+void scale_and_store_sdf_if_modified(
+		VoxelBuffer &voxels,
+		Span<float> sdf,
+		Span<const float> comparand,
+		VoxelBuffer::ChannelId channel
+) {
 	ZN_PROFILE_SCOPE();
-	const VoxelBuffer::ChannelId channel = VoxelBuffer::CHANNEL_SDF;
+	ZN_ASSERT_RETURN(VoxelBuffer::is_float_channel(channel));
 	const VoxelBuffer::Depth depth = voxels.get_channel_depth(channel);
 	ZN_ASSERT_RETURN(voxels.get_channel_compression(channel) == VoxelBuffer::COMPRESSION_NONE);
 

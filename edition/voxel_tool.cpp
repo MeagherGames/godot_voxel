@@ -149,7 +149,7 @@ void VoxelTool::do_point(Vector3i pos) {
 	if (!is_area_editable(box)) {
 		return;
 	}
-	if (_channel == VoxelBuffer::CHANNEL_SDF) {
+	if (VoxelBuffer::is_float_channel(_channel)) {
 		// Not consistent SDF, but should work
 		_set_voxel_f(pos, _mode == MODE_REMOVE ? constants::SDF_FAR_OUTSIDE : constants::SDF_FAR_INSIDE);
 	} else {
@@ -194,7 +194,7 @@ void VoxelTool::do_sphere(Vector3 p_center, float radius) {
 		return;
 	}
 
-	if (_channel == VoxelBuffer::CHANNEL_SDF) {
+	if (VoxelBuffer::is_float_channel(_channel)) {
 		const Vector3f center = to_vec3f(p_center);
 		box.for_each_cell([this, center, radius](Vector3i pos) {
 			float d = _sdf_scale * zylann::math::sdf_sphere(to_vec3f(pos), center, radius);
@@ -223,7 +223,10 @@ void VoxelTool::sdf_stamp_erase(Ref<godot::VoxelBuffer> stamp, Vector3i pos) {
 
 void VoxelTool::sdf_stamp_erase(const VoxelBuffer &stamp, Vector3i pos) {
 	ZN_PROFILE_SCOPE();
-	ERR_FAIL_COND_MSG(get_channel() != VoxelBuffer::CHANNEL_SDF, "This function only works when channel is set to SDF");
+	ERR_FAIL_COND_MSG(
+			!VoxelBuffer::is_float_channel(get_channel()),
+			"This function only works when channel is set to a float channel"
+	);
 
 	const Box3i box(pos, stamp.get_size());
 	if (!is_area_editable(box)) {
@@ -231,10 +234,11 @@ void VoxelTool::sdf_stamp_erase(const VoxelBuffer &stamp, Vector3i pos) {
 		return;
 	}
 
-	box.for_each_cell_zxy([this, &stamp, pos](Vector3i pos_in_volume) {
+	const VoxelBuffer::ChannelId channel = static_cast<VoxelBuffer::ChannelId>(get_channel());
+
+	box.for_each_cell_zxy([this, &stamp, pos, channel](Vector3i pos_in_volume) {
 		const Vector3i pos_in_stamp = pos_in_volume - pos;
-		const float dst_sdf =
-				stamp.get_voxel_f(pos_in_stamp.x, pos_in_stamp.y, pos_in_stamp.z, VoxelBuffer::CHANNEL_SDF);
+		const float dst_sdf = stamp.get_voxel_f(pos_in_stamp.x, pos_in_stamp.y, pos_in_stamp.z, channel);
 		if (dst_sdf <= 0.f) {
 			// Not consistent SDF, but should work ok
 			_set_voxel_f(pos_in_volume, constants::SDF_FAR_OUTSIDE);
@@ -256,7 +260,7 @@ void VoxelTool::do_box(Vector3i begin, Vector3i end) {
 		return;
 	}
 
-	if (_channel == VoxelBuffer::CHANNEL_SDF) {
+	if (VoxelBuffer::is_float_channel(_channel)) {
 		// TODO Better quality
 		// Not consistent SDF, but should work ok
 		box.for_each_cell([this](Vector3i pos) {
@@ -356,17 +360,24 @@ void VoxelTool::smooth_sphere(Vector3 sphere_center, float sphere_radius, int bl
 	VoxelBuffer buffer(VoxelBuffer::ALLOCATOR_POOL);
 	buffer.create(padded_voxel_box.size);
 
-	if (_channel == VoxelBuffer::CHANNEL_SDF) {
-		// Note, this only applies to SDF. It won't blur voxel texture data.
+	if (VoxelBuffer::is_float_channel(_channel)) {
+		// Note, this only applies to float channels. It won't blur voxel texture data.
 
-		copy(padded_voxel_box.position, buffer, (1 << VoxelBuffer::CHANNEL_SDF), false);
+		copy(padded_voxel_box.position, buffer, (1 << _channel), false);
 
 		VoxelBuffer smooth_buffer(VoxelBuffer::ALLOCATOR_POOL);
 		smooth_buffer.copy_format(buffer);
 		const Vector3f relative_sphere_center = to_vec3f(sphere_center - to_vec3(voxel_box.position));
-		ops::box_blur(buffer, smooth_buffer, blur_radius, relative_sphere_center, sphere_radius);
+		ops::box_blur(
+				buffer,
+				smooth_buffer,
+				blur_radius,
+				relative_sphere_center,
+				sphere_radius,
+				static_cast<VoxelBuffer::ChannelId>(_channel)
+		);
 
-		paste(voxel_box.position, smooth_buffer, (1 << VoxelBuffer::CHANNEL_SDF));
+		paste(voxel_box.position, smooth_buffer, (1 << _channel));
 
 	} else {
 		ERR_PRINT("Not implemented");
@@ -392,17 +403,23 @@ void VoxelTool::grow_sphere(Vector3 sphere_center, float sphere_radius, float st
 	VoxelBuffer buffer(VoxelBuffer::ALLOCATOR_POOL);
 	buffer.create(voxel_box.size);
 
-	if (_channel == VoxelBuffer::CHANNEL_SDF) {
-		// Note, this only applies to SDF. It won't affect voxel texture data.
+	if (VoxelBuffer::is_float_channel(_channel)) {
+		// Note, this only applies to float channels. It won't affect voxel texture data.
 
-		copy(voxel_box.position, buffer, (1 << VoxelBuffer::CHANNEL_SDF), false);
+		copy(voxel_box.position, buffer, (1 << _channel), false);
 
 		const Vector3f relative_sphere_center = to_vec3f(sphere_center - to_vec3(voxel_box.position));
 		const float signed_strength = _mode == VoxelTool::MODE_REMOVE ? -strength : strength;
 
-		ops::grow_sphere(buffer, _sdf_scale * signed_strength, relative_sphere_center, sphere_radius);
+		ops::grow_sphere(
+				buffer,
+				_sdf_scale * signed_strength,
+				relative_sphere_center,
+				sphere_radius,
+				static_cast<VoxelBuffer::ChannelId>(_channel)
+		);
 
-		paste(voxel_box.position, buffer, (1 << VoxelBuffer::CHANNEL_SDF));
+		paste(voxel_box.position, buffer, (1 << _channel));
 
 	} else {
 		ERR_PRINT("Not implemented");

@@ -151,7 +151,7 @@ void VoxelData::set_full_load_completed(bool complete) {
 
 inline VoxelSingleValue get_voxel_sv(VoxelBuffer &vb, Vector3i pos, unsigned int channel) {
 	VoxelSingleValue v;
-	if (channel == VoxelBuffer::CHANNEL_SDF) {
+	if (channel == VoxelBuffer::CHANNEL_SDF || channel == VoxelBuffer::CHANNEL_DATA5) {
 		v.f = vb.get_voxel_f(pos.x, pos.y, pos.z, channel);
 	} else {
 		v.i = vb.get_voxel(pos, channel);
@@ -190,7 +190,7 @@ VoxelSingleValue VoxelData::get_voxel(Vector3i pos, unsigned int channel_index, 
 			if (generator.is_valid()) {
 				VoxelSingleValue value = generator->generate_single(pos, channel_index);
 #ifdef VOXEL_ENABLE_MODIFIERS
-				if (channel_index == VoxelBuffer::CHANNEL_SDF) {
+				if (channel_index == VoxelBuffer::CHANNEL_SDF || channel_index == VoxelBuffer::CHANNEL_DATA5) {
 					float sdf = value.f;
 					_modifiers.apply(sdf, to_vec3f(pos));
 					value.f = sdf;
@@ -234,7 +234,7 @@ VoxelSingleValue VoxelData::get_voxel(Vector3i pos, unsigned int channel_index, 
 					if (generator.is_valid()) {
 						VoxelSingleValue value = generator->generate_single(pos, channel_index);
 #ifdef VOXEL_ENABLE_MODIFIERS
-						if (channel_index == VoxelBuffer::CHANNEL_SDF) {
+						if (channel_index == VoxelBuffer::CHANNEL_SDF || channel_index == VoxelBuffer::CHANNEL_DATA5) {
 							float sdf = value.f;
 							_modifiers.apply(sdf, to_vec3f(pos));
 							value.f = sdf;

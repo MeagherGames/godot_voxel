@@ -9,9 +9,9 @@ VoxelFormat::VoxelFormat() {
 	depths[VoxelBuffer::CHANNEL_COLOR] = VoxelBuffer::DEFAULT_CHANNEL_DEPTH;
 	depths[VoxelBuffer::CHANNEL_INDICES] = VoxelBuffer::DEFAULT_INDICES_CHANNEL_DEPTH;
 	depths[VoxelBuffer::CHANNEL_WEIGHTS] = VoxelBuffer::DEFAULT_WEIGHTS_CHANNEL_DEPTH;
-	depths[VoxelBuffer::CHANNEL_DATA5] = VoxelBuffer::DEFAULT_CHANNEL_DEPTH;
-	depths[VoxelBuffer::CHANNEL_DATA6] = VoxelBuffer::DEFAULT_CHANNEL_DEPTH;
-	depths[VoxelBuffer::CHANNEL_DATA7] = VoxelBuffer::DEFAULT_CHANNEL_DEPTH;
+	depths[VoxelBuffer::CHANNEL_DATA5] = VoxelBuffer::DEFAULT_SDF_CHANNEL_DEPTH;
+	depths[VoxelBuffer::CHANNEL_DATA6] = VoxelBuffer::DEFAULT_INDICES_CHANNEL_DEPTH;
+	depths[VoxelBuffer::CHANNEL_DATA7] = VoxelBuffer::DEFAULT_WEIGHTS_CHANNEL_DEPTH;
 }
 
 void VoxelFormat::configure_buffer(VoxelBuffer &vb) const {

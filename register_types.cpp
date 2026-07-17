@@ -54,6 +54,7 @@
 
 #ifdef VOXEL_ENABLE_SMOOTH_MESHING
 #include "meshers/transvoxel/voxel_mesher_transvoxel.h"
+#include "meshers/transvoxel/voxel_mesher_transvoxel_dual.h"
 #endif
 
 #ifdef VOXEL_ENABLE_MODIFIERS
@@ -331,6 +332,7 @@ void initialize_voxel_module(ModuleInitializationLevel p_level) {
 
 #ifdef VOXEL_ENABLE_SMOOTH_MESHING
 		ClassDB::register_class<VoxelMesherTransvoxel>();
+		ClassDB::register_class<VoxelMesherTransvoxelDual>();
 #endif
 
 #ifdef VOXEL_ENABLE_MODIFIERS

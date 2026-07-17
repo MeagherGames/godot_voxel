@@ -536,28 +536,28 @@ struct DoSphere {
 	void operator()() {
 		ZN_PROFILE_SCOPE();
 
-		if (channel == VoxelBuffer::CHANNEL_SDF) {
+		if (VoxelBuffer::is_float_channel(channel)) {
 			switch (mode) {
 				case MODE_ADD: {
 					// TODO Support other depths, format should be accessible from the volume
 					SdfOperation16bit<SdfUnion, SdfSphere> op;
 					op.shape = shape;
 					op.op.strength = strength;
-					blocks.write_box(box, VoxelBuffer::CHANNEL_SDF, op);
+					blocks.write_box(box, channel, op);
 				} break;
 
 				case MODE_REMOVE: {
 					SdfOperation16bit<SdfSubtract, SdfSphere> op;
 					op.shape = shape;
 					op.op.strength = strength;
-					blocks.write_box(box, VoxelBuffer::CHANNEL_SDF, op);
+					blocks.write_box(box, channel, op);
 				} break;
 
 				case MODE_SET: {
 					SdfOperation16bit<SdfSet, SdfSphere> op;
 					op.shape = shape;
 					op.op.strength = strength;
-					blocks.write_box(box, VoxelBuffer::CHANNEL_SDF, op);
+					blocks.write_box(box, channel, op);
 				} break;
 
 				case MODE_TEXTURE_PAINT: {
@@ -677,28 +677,28 @@ struct DoShapeChunked {
 	void operator()() {
 		ZN_PROFILE_SCOPE();
 
-		if (channel == VoxelBuffer::CHANNEL_SDF) {
+		if (VoxelBuffer::is_float_channel(channel)) {
 			switch (mode) {
 				case MODE_ADD: {
 					// TODO Support other depths, format should be accessible from the volume. Or separate encoding?
 					SdfOperation16bit<SdfUnion, TShape> op;
 					op.shape = shape;
 					op.op.strength = strength;
-					write_box_in_chunked_storage_1_channel(op, block_access, box, VoxelBuffer::CHANNEL_SDF);
+					write_box_in_chunked_storage_1_channel(op, block_access, box, channel);
 				} break;
 
 				case MODE_REMOVE: {
 					SdfOperation16bit<SdfSubtract, TShape> op;
 					op.shape = shape;
 					op.op.strength = strength;
-					write_box_in_chunked_storage_1_channel(op, block_access, box, VoxelBuffer::CHANNEL_SDF);
+					write_box_in_chunked_storage_1_channel(op, block_access, box, channel);
 				} break;
 
 				case MODE_SET: {
 					SdfOperation16bit<SdfSet, TShape> op;
 					op.shape = shape;
 					op.op.strength = strength;
-					write_box_in_chunked_storage_1_channel(op, block_access, box, VoxelBuffer::CHANNEL_SDF);
+					write_box_in_chunked_storage_1_channel(op, block_access, box, channel);
 				} break;
 
 				case MODE_TEXTURE_PAINT: {
@@ -741,7 +741,7 @@ struct DoShapeSingleBuffer {
 
 		// const Box3i clipped_box = box.clip(Box3i(Vector3i(), buffer.get_size()));
 
-		if (channel == VoxelBuffer::CHANNEL_SDF) {
+		if (VoxelBuffer::is_float_channel(channel)) {
 			switch (mode) {
 				case MODE_ADD: {
 					// TODO Support other depths, format should be accessible from the volume. Or separate encoding?
@@ -792,9 +792,22 @@ struct DoShapeSingleBuffer {
 void box_blur_slow_ref(const VoxelBuffer &src, VoxelBuffer &dst, int radius, Vector3f sphere_pos, float sphere_radius);
 #endif
 
-void box_blur(const VoxelBuffer &src, VoxelBuffer &dst, int radius, Vector3f sphere_pos, float sphere_radius);
+void box_blur(
+		const VoxelBuffer &src,
+		VoxelBuffer &dst,
+		int radius,
+		Vector3f sphere_pos,
+		float sphere_radius,
+		VoxelBuffer::ChannelId channel = VoxelBuffer::CHANNEL_SDF
+);
 
-void grow_sphere(VoxelBuffer &src, float strength, Vector3f sphere_pos, float sphere_radius);
+void grow_sphere(
+		VoxelBuffer &src,
+		float strength,
+		Vector3f sphere_pos,
+		float sphere_radius,
+		VoxelBuffer::ChannelId channel = VoxelBuffer::CHANNEL_SDF
+);
 
 } // namespace zylann::voxel::ops
 

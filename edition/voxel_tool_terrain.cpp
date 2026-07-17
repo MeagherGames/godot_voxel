@@ -117,7 +117,7 @@ void VoxelToolTerrain::do_box(Vector3i begin, Vector3i end) {
 	ZN_PROFILE_SCOPE();
 	ERR_FAIL_COND(_terrain == nullptr);
 
-	if (get_channel() != VoxelBuffer::CHANNEL_SDF) {
+	if (!VoxelBuffer::is_float_channel(get_channel())) {
 		// Fallback on generic do_box, which pretty much does a naive fill in the exact boundaries, though it's still
 		// slower than necessary because it uses random access.
 		// TODO Make it so generic ops can do that too without an extra margin and without superfluous calculations
