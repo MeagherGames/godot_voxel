@@ -431,13 +431,13 @@
 			Channel used to store material weights, when more than one index can be stored per voxel. Used with smooth voxels.
 		</constant>
 		<constant name="CHANNEL_DATA5" value="5" enum="ChannelId">
-			Free channel. Not used by the engine yet.
+			Secondary SDF channel ([code]sdf2[/code]). Defaults to SDF-like depth and values.
 		</constant>
 		<constant name="CHANNEL_DATA6" value="6" enum="ChannelId">
-			Free channel. Not used by the engine yet.
+			Secondary Indices channel ([code]indices2[/code]). Defaults to indices-like depth and values.
 		</constant>
 		<constant name="CHANNEL_DATA7" value="7" enum="ChannelId">
-			Free channel. Not used by the engine yet.
+			Secondary Weights channel ([code]weights2[/code]). Defaults to weights-like depth and values.
 		</constant>
 		<constant name="MAX_CHANNELS" value="8" enum="ChannelId">
 			Maximum number of channels a [VoxelBuffer] can have.

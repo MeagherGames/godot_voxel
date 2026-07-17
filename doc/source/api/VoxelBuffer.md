@@ -74,9 +74,9 @@ enum **ChannelId**:
 - <span id="i_CHANNEL_COLOR"></span>**CHANNEL_COLOR** = **2** --- Channel used to store color data. Used by [VoxelMesherCubes](VoxelMesherCubes.md).
 - <span id="i_CHANNEL_INDICES"></span>**CHANNEL_INDICES** = **3** --- Channel used to store material indices. Used with smooth voxels.
 - <span id="i_CHANNEL_WEIGHTS"></span>**CHANNEL_WEIGHTS** = **4** --- Channel used to store material weights, when more than one index can be stored per voxel. Used with smooth voxels.
-- <span id="i_CHANNEL_DATA5"></span>**CHANNEL_DATA5** = **5** --- Free channel. Not used by the engine yet.
-- <span id="i_CHANNEL_DATA6"></span>**CHANNEL_DATA6** = **6** --- Free channel. Not used by the engine yet.
-- <span id="i_CHANNEL_DATA7"></span>**CHANNEL_DATA7** = **7** --- Free channel. Not used by the engine yet.
+- <span id="i_CHANNEL_DATA5"></span>**CHANNEL_DATA5** = **5** --- Secondary SDF channel (`sdf2`). Defaults to SDF-like depth and values.
+- <span id="i_CHANNEL_DATA6"></span>**CHANNEL_DATA6** = **6** --- Secondary Indices channel (`indices2`). Defaults to indices-like depth and values.
+- <span id="i_CHANNEL_DATA7"></span>**CHANNEL_DATA7** = **7** --- Secondary Weights channel (`weights2`). Defaults to weights-like depth and values.
 - <span id="i_MAX_CHANNELS"></span>**MAX_CHANNELS** = **8** --- Maximum number of channels a [VoxelBuffer](VoxelBuffer.md) can have.
 
 enum **ChannelMask**: 

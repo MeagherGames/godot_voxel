@@ -299,7 +299,7 @@ PackedByteArray get_channel_as_byte_array(const VoxelBuffer &vb, const VoxelBuff
 
 namespace zylann::voxel::godot {
 
-const char *VoxelBuffer::CHANNEL_ID_HINT_STRING = "Type,Sdf,Color,Indices,Weights,Data5,Data6,Data7";
+const char *VoxelBuffer::CHANNEL_ID_HINT_STRING = "Type,Sdf,Color,Indices,Weights,Sdf2,Indices2,Weights2";
 static thread_local bool s_create_shared = false;
 
 Variant get_voxel_metadata(const zylann::voxel::VoxelBuffer &vb, const Vector3i pos) {

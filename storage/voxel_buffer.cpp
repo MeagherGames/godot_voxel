@@ -72,11 +72,11 @@ const char *VoxelBuffer::get_channel_name(const ChannelId id) {
 		case CHANNEL_WEIGHTS:
 			return "weights";
 		case CHANNEL_DATA5:
-			return "data5";
+			return "sdf2";
 		case CHANNEL_DATA6:
-			return "data6";
+			return "indices2";
 		case CHANNEL_DATA7:
-			return "data7";
+			return "weights2";
 		default:
 			ZN_PRINT_ERROR("Unknown channel ID");
 			return "<error>";

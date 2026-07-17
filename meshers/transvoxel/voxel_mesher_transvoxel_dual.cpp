@@ -3,6 +3,7 @@
 #include "../../constants/cube_tables.h"
 #include "../../thirdparty/meshoptimizer/meshoptimizer.h"
 #include "../../storage/voxel_buffer_gd.h"
+#include "../../util/godot/classes/material.h"
 #include "../../util/godot/classes/mesh.h"
 #include "../../util/godot/classes/rendering_server.h"
 #include "../../util/godot/core/packed_arrays.h"
@@ -27,7 +28,54 @@ int normalize_secondary_channel(int channel) {
 	}
 }
 
-void fill_surface_arrays(Array &arrays, const transvoxel::MeshArrays &src) {
+void copy_channel_remapped(
+		const VoxelBuffer &src,
+		const unsigned int src_channel,
+		VoxelBuffer &dst,
+		const unsigned int dst_channel
+) {
+	dst.set_channel_depth(dst_channel, src.get_channel_depth(src_channel));
+
+	if (src.get_channel_compression(src_channel) == VoxelBuffer::COMPRESSION_UNIFORM) {
+		dst.clear_channel(dst_channel, src.get_voxel(0, 0, 0, src_channel));
+		return;
+	}
+
+	Span<const uint8_t> src_bytes;
+	ZN_ASSERT_RETURN(src.get_channel_as_bytes_read_only(src_channel, src_bytes));
+	dst.set_channel_from_bytes(dst_channel, src_bytes);
+}
+
+void create_secondary_meshing_buffer(
+		const VoxelBuffer &source,
+		const uint32_t secondary_sdf_channel,
+		const VoxelMesherTransvoxel::TexturingMode texturing_mode,
+		VoxelBuffer &out_voxels
+) {
+	out_voxels.create(source.get_size());
+	source.copy_to(out_voxels, false);
+
+	copy_channel_remapped(source, secondary_sdf_channel, out_voxels, VoxelBuffer::CHANNEL_SDF);
+
+	switch (texturing_mode) {
+		case VoxelMesherTransvoxel::TEXTURES_MIXEL4_S4:
+			copy_channel_remapped(source, VoxelBuffer::CHANNEL_DATA6, out_voxels, VoxelBuffer::CHANNEL_INDICES);
+			copy_channel_remapped(source, VoxelBuffer::CHANNEL_DATA7, out_voxels, VoxelBuffer::CHANNEL_WEIGHTS);
+			break;
+
+		case VoxelMesherTransvoxel::TEXTURES_SINGLE_S4:
+			copy_channel_remapped(source, VoxelBuffer::CHANNEL_DATA6, out_voxels, VoxelBuffer::CHANNEL_INDICES);
+			break;
+
+		case VoxelMesherTransvoxel::TEXTURES_NONE:
+			break;
+
+		default:
+			break;
+	}
+}
+
+void fill_surface_arrays(Array &arrays, const transvoxel::MeshArrays &src, const int texturing_array_index) {
 	PackedVector3Array vertices;
 	PackedVector3Array normals;
 	PackedFloat32Array lod_data;
@@ -52,11 +100,11 @@ void fill_surface_arrays(Array &arrays, const transvoxel::MeshArrays &src) {
 	if (src.texturing_data_1f32.size() != 0) {
 		texturing_data.resize(src.texturing_data_1f32.size());
 		memcpy(texturing_data.ptrw(), src.texturing_data_1f32.data(), texturing_data.size() * sizeof(float));
-		arrays[Mesh::ARRAY_CUSTOM1] = texturing_data;
+		arrays[texturing_array_index] = texturing_data;
 	} else if (src.texturing_data_2f32.size() != 0) {
 		texturing_data.resize(src.texturing_data_2f32.size() * 2);
 		memcpy(texturing_data.ptrw(), src.texturing_data_2f32.data(), texturing_data.size() * sizeof(float));
-		arrays[Mesh::ARRAY_CUSTOM1] = texturing_data;
+		arrays[texturing_array_index] = texturing_data;
 	}
 
 	arrays[Mesh::ARRAY_CUSTOM0] = lod_data;
@@ -136,7 +184,8 @@ bool build_secondary_surface(
 		const uint32_t sdf_channel,
 		const VoxelMesherTransvoxelDual &mesher,
 		const VoxelMesher::Input &input,
-		VoxelMesher::Output::Surface &surface_out
+		VoxelMesher::Output::Surface &surface_out,
+		const int texturing_array_index
 ) {
 	if (voxels.is_uniform(sdf_channel)) {
 		return false;
@@ -194,9 +243,9 @@ bool build_secondary_surface(
 	}
 
 	Array gd_arrays;
-	fill_surface_arrays(gd_arrays, mesh_arrays);
+	fill_surface_arrays(gd_arrays, mesh_arrays, texturing_array_index);
 	surface_out.arrays = gd_arrays;
-	surface_out.material_index = 0;
+	surface_out.material_index = 1;
 	return true;
 }
 
@@ -207,23 +256,61 @@ VoxelMesherTransvoxelDual::VoxelMesherTransvoxelDual() = default;
 VoxelMesherTransvoxelDual::~VoxelMesherTransvoxelDual() = default;
 
 int VoxelMesherTransvoxelDual::get_used_channels_mask() const {
-	return VoxelMesherTransvoxel::get_used_channels_mask() | (1 << _secondary_sdf_channel);
+	uint32_t mask = VoxelMesherTransvoxel::get_used_channels_mask() | (1 << _secondary_sdf_channel);
+
+	switch (get_texturing_mode()) {
+		case TEXTURES_MIXEL4_S4:
+			mask |= (1 << VoxelBuffer::CHANNEL_DATA6) | (1 << VoxelBuffer::CHANNEL_DATA7);
+			break;
+
+		case TEXTURES_SINGLE_S4:
+			mask |= (1 << VoxelBuffer::CHANNEL_DATA6);
+			break;
+
+		case TEXTURES_NONE:
+			break;
+
+		default:
+			break;
+	}
+
+	return mask;
+}
+
+Ref<Material> VoxelMesherTransvoxelDual::get_material_by_index(unsigned int i) const {
+	switch (i) {
+		case 0:
+			return _primary_material;
+		case 1:
+			return _secondary_material;
+		default:
+			return Ref<Material>();
+	}
+}
+
+unsigned int VoxelMesherTransvoxelDual::get_material_index_count() const {
+	return 2;
 }
 
 void VoxelMesherTransvoxelDual::build(VoxelMesher::Output &output, const VoxelMesher::Input &input) {
 	const uint32_t secondary_channel = static_cast<uint32_t>(normalize_secondary_channel(_secondary_sdf_channel));
 	ERR_FAIL_COND(secondary_channel < VoxelBuffer::CHANNEL_DATA5 || secondary_channel > VoxelBuffer::CHANNEL_DATA7);
+	const TexturingMode texturing_mode = get_texturing_mode();
+
+	VoxelBuffer secondary_voxels(VoxelBuffer::ALLOCATOR_POOL);
+	create_secondary_meshing_buffer(input.voxels, secondary_channel, texturing_mode, secondary_voxels);
 
 	VoxelMesher::Output::Surface secondary_surface;
-	const bool has_secondary = build_secondary_surface(input.voxels, secondary_channel, *this, input, secondary_surface);
+	const bool has_secondary =
+			build_secondary_surface(secondary_voxels, VoxelBuffer::CHANNEL_SDF, *this, input, secondary_surface, Mesh::ARRAY_CUSTOM2);
 
 	VoxelMesherTransvoxel::build(output, input);
 
 	output.primitive_type = Mesh::PRIMITIVE_TRIANGLES;
-	output.mesh_flags = (RenderingServerEnums::ARRAY_CUSTOM_RGBA_FLOAT << Mesh::ARRAY_FORMAT_CUSTOM0_SHIFT);
-	const TexturingMode texturing_mode = get_texturing_mode();
+	output.mesh_flags |= (RenderingServerEnums::ARRAY_CUSTOM_RGBA_FLOAT << Mesh::ARRAY_FORMAT_CUSTOM0_SHIFT);
 	if (texturing_mode == TEXTURES_MIXEL4_S4 || texturing_mode == TEXTURES_SINGLE_S4) {
 		output.mesh_flags |= (RenderingServerEnums::ARRAY_CUSTOM_RG_FLOAT << Mesh::ARRAY_FORMAT_CUSTOM1_SHIFT);
+		output.mesh_flags |= (RenderingServerEnums::ARRAY_CUSTOM_RG_FLOAT << Mesh::ARRAY_FORMAT_CUSTOM2_SHIFT);
 	}
 
 	if (has_secondary) {
@@ -252,6 +339,24 @@ bool VoxelMesherTransvoxelDual::is_generating_secondary_collision() const {
 	return _generate_secondary_collision;
 }
 
+void VoxelMesherTransvoxelDual::set_primary_material(Ref<Material> material) {
+	_primary_material = material;
+	emit_changed();
+}
+
+Ref<Material> VoxelMesherTransvoxelDual::get_primary_material() const {
+	return _primary_material;
+}
+
+void VoxelMesherTransvoxelDual::set_secondary_material(Ref<Material> material) {
+	_secondary_material = material;
+	emit_changed();
+}
+
+Ref<Material> VoxelMesherTransvoxelDual::get_secondary_material() const {
+	return _secondary_material;
+}
+
 void VoxelMesherTransvoxelDual::_bind_methods() {
 	using Self = VoxelMesherTransvoxelDual;
 
@@ -262,6 +367,10 @@ void VoxelMesherTransvoxelDual::_bind_methods() {
 			&Self::set_generate_secondary_collision
 	);
 	ClassDB::bind_method(D_METHOD("is_generating_secondary_collision"), &Self::is_generating_secondary_collision);
+	ClassDB::bind_method(D_METHOD("set_primary_material", "material"), &Self::set_primary_material);
+	ClassDB::bind_method(D_METHOD("get_primary_material"), &Self::get_primary_material);
+	ClassDB::bind_method(D_METHOD("set_secondary_material", "material"), &Self::set_secondary_material);
+	ClassDB::bind_method(D_METHOD("get_secondary_material"), &Self::get_secondary_material);
 
 	ADD_PROPERTY(
 			PropertyInfo(
@@ -277,6 +386,16 @@ void VoxelMesherTransvoxelDual::_bind_methods() {
 			PropertyInfo(Variant::BOOL, "generate_secondary_collision"),
 			"set_generate_secondary_collision",
 			"is_generating_secondary_collision"
+	);
+	ADD_PROPERTY(
+			PropertyInfo(Variant::OBJECT, "primary_material", PROPERTY_HINT_RESOURCE_TYPE, "Material"),
+			"set_primary_material",
+			"get_primary_material"
+	);
+	ADD_PROPERTY(
+			PropertyInfo(Variant::OBJECT, "secondary_material", PROPERTY_HINT_RESOURCE_TYPE, "Material"),
+			"set_secondary_material",
+			"get_secondary_material"
 	);
 }
 
